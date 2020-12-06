@@ -1,0 +1,98 @@
+<div class="contents">
+  <div class="area-select-div">
+    <select
+      id="area-select"
+      class="area-select"
+      *ngIf="!isHidden"
+      [(ngModel)]="selectedArea"
+      [value]="'default'"
+      (change)="onChangeAreaSelect()"
+    >
+      <option value="" [value]="'default'" disabled>
+        地域を選択してください
+      </option>
+      <option value="osaka" [value]="'osaka'">大阪市</option>
+      <option value="shibuya" [value]="'shibuya'">渋谷区</option>
+    </select>
+  </div>
+
+  <!-- 写真をアップロードするエリアブロック -->
+  <div id="analyzed-img" *ngIf="isLoaded">
+    <img [src]="imageData" width="200px" height="200px" />
+    <div class="analyze-other-div">
+      <button class="btn analyze-other" (click)="file.click()">
+        ほかのものを分析
+      </button>
+    </div>
+    <input #file type="file" id="file" (change)="onChangeFile($event)" />
+  </div>
+  <div class="action-area" *ngIf="!isHidden">
+    <figure>
+      <img
+        class="main-img"
+        src="assets/img/img-upload.png"
+        width="150px"
+        (click)="file.click()"
+      />
+      <input #file type="file" id="file" (change)="onChangeFile($event)" />
+      <figcaption class="tap">タップして画像をアップ</figcaption>
+    </figure>
+  </div>
+
+  <!-- 結果を表示するエリアブロック -->
+  <div class="result-area" *ngIf="isFinished">
+    <div *ngIf="detailedTags.length > 0; else elseBlock">
+      <div *ngIf="isReviewed; else elseBlock">
+        <h2 class="result">
+          <span class="review"> 再判定結果: <br /> </span>
+          {{ lastResult }}として捨ててください
+        </h2>
+      </div>
+      <ng-template #elseBlock>
+        <h2 class="result">{{ lastResult }}の可能性が高いです</h2>
+        <h5 class="result-p">信頼度: {{ confidence }}%</h5>
+      </ng-template>
+    </div>
+    <ng-template #elseBlock>
+      <h2 class="result result-error">
+        分析ができませんでした。地域の環境局にお電話ください
+      </h2>
+      <a href="index.html"><button class="btn">トップに戻る</button></a>
+    </ng-template>
+  </div>
+
+  <!-- ゴミのタグを表示するエリアブロック -->
+  <div
+    class="sub-area col-xs-offset-2 col-xs-8"
+    *ngIf="detailedTags.length > 0"
+  >
+    <h5>
+      ごみの名称が分かる場合は、この中から選択してください。<br />
+      さらに正確な情報を提供できます。
+    </h5>
+    <div class="radio-box clearfix">
+      <ng-container *ngFor="let tag of detailedTags; index as index">
+        <input
+          type="radio"
+          name="selectedTag"
+          [value]="tag"
+          [id]="index"
+          [(ngModel)]="selectedTag"
+        />
+        <label [for]="index">{{ tag }}</label>
+      </ng-container>
+    </div>
+    <!-- ボタン -->
+    <button
+      type="button"
+      class="btn btn-success btn-lg"
+      (click)="onClickBtnSuccess($event)"
+    >
+      <span class="glyphicon glyphicon-search" aria-hidden="true"></span>
+      再判定する
+    </button>
+  </div>
+  <div class="graph" hidden>
+    <canvas id="stage"></canvas>
+  </div>
+</div>

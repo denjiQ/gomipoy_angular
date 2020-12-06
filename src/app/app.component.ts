@@ -7,4 +7,8 @@ import { Component } from '@angular/core';
 })
 export class AppComponent {
   title = 'gomipoy';
+  isHelpOpen: boolean = false;
+  onClickBtnSm(): void {
+    this.isHelpOpen = !this.isHelpOpen;
+  }
 }
