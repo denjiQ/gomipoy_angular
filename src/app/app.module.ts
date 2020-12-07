@@ -6,6 +6,9 @@ import { AppComponent } from './app.component';
 import { ContentsComponent } from './contents/contents.component';
 import { FormsModule } from '@angular/forms'; // <-- NgModel lives here
 
+import { AngularFireModule } from '@angular/fire';
+import { environment } from '../environments/environment';
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -14,7 +17,8 @@ import { FormsModule } from '@angular/forms'; // <-- NgModel lives here
   imports: [
     BrowserModule,
     AppRoutingModule,
-    FormsModule
+    FormsModule,
+    AngularFireModule.initializeApp(environment.firebase)
   ],
   providers: [],
   bootstrap: [AppComponent]
