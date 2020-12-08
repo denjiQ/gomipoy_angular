@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import axios from 'axios';
 import { Chart } from 'chart.js';
 
+import { environment } from '../../environments/environment.prod';
+
 @Component({
   selector: 'app-contents',
   templateUrl: './contents.component.html',
@@ -83,8 +85,8 @@ export class ContentsComponent implements OnInit {
     var file_reader = new FileReader();
     file_reader.readAsArrayBuffer(file);
     file_reader.onload = async (e) => {
-      const MY_DOMAIN = process.env.AZURE_API_DOMAIN;
-      const MY_SUBSCRIPTION_KEY = process.env.AZURE_SUBSCRIPTION_KEY;
+      const MY_DOMAIN = environment.azure.AZURE_API_DOMAIN;
+      const MY_SUBSCRIPTION_KEY = environment.azure.AZURE_SUBSCRIPTION_KEY;
       const contents = file_reader.result;
       new URLSearchParams();
       const params = {
