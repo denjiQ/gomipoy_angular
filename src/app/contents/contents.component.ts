@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import axios from 'axios';
 import { Chart } from 'chart.js';
 
-import { environment } from '../../environments/environment.prod';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-contents',
