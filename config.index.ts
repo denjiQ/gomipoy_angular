@@ -3,7 +3,7 @@ import {writeFile} from 'fs';
 const targetPath = './src/environments/environment.prod.ts';
 
 const envConfigFile = `export const environment = {
-  production: false,
+  production: true,
   firebase: {
     apiKey: '${process.env.FIREBASE_API_KEY}',
     authDomain: '${process.env.FIREBASE_AUTH_DOMAIN}',
