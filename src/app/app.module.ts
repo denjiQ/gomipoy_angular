@@ -7,6 +7,7 @@ import { ContentsComponent } from './contents/contents.component';
 import { FormsModule } from '@angular/forms'; // <-- NgModel lives here
 
 import { AngularFireModule } from '@angular/fire';
+import { AngularFirestoreModule } from '@angular/fire/firestore';
 import { environment } from '../environments/environment.prod';
 
 @NgModule({
@@ -18,7 +19,8 @@ import { environment } from '../environments/environment.prod';
     BrowserModule,
     AppRoutingModule,
     FormsModule,
-    AngularFireModule.initializeApp(environment.firebase)
+    AngularFireModule.initializeApp(environment.firebase),
+    AngularFirestoreModule,
   ],
   providers: [],
   bootstrap: [AppComponent]

@@ -1,9 +1,9 @@
 <div class="contents">
-  <div class="area-select-div">
+  <div class="area-select-div" *ngIf="!isHidden">
+    地域
     <select
       id="area-select"
       class="area-select"
-      *ngIf="!isHidden"
       [(ngModel)]="selectedArea"
       [value]="'default'"
       (change)="onChangeAreaSelect()"
@@ -34,7 +34,7 @@
         width="150px"
         (click)="file.click()"
       />
-      <input #file type="file" id="file" (change)="onChangeFile($event)" />
+      <input #file type="file" id="file" (change)="onChangeFile($event)" [disabled]="isFileDisabled"/>
       <figcaption class="tap">タップして画像をアップ</figcaption>
     </figure>
   </div>
@@ -71,6 +71,14 @@
       さらに正確な情報を提供できます。
     </h5>
     <div class="radio-box clearfix">
+      <input
+        type="radio"
+        name="selectedTag"
+        value="unknown"
+        id="unknown"
+        [(ngModel)]="selectedTag"
+      />
+      <label for="unknown">わからない</label>
       <ng-container *ngFor="let tag of detailedTags; index as index">
         <input
           type="radio"
