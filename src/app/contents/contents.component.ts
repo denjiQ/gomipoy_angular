@@ -34,6 +34,7 @@ export class ContentsComponent implements OnInit {
   isLoaded: boolean = false;
   garbages;
 
+  isFileDisabled: boolean = true;
   isFinished: boolean = false;
   isReviewed: boolean = false;
   scores = [];
@@ -89,6 +90,7 @@ export class ContentsComponent implements OnInit {
 
   onChangeAreaSelect(): void {
     this.garbage = this.garbages[this.selectedArea];
+    this.isFileDisabled = false
   }
 
   onChangeFile(e): void {
@@ -174,7 +176,7 @@ export class ContentsComponent implements OnInit {
       alert('再分析するには、まず選択肢を選んでください');
       return;
     }
-    if (this.selectedTag == 'わからない') {
+    if (this.selectedTag == 'unknown') {
       alert(
         'すみませんが、このゴミに関してはお力になれません。地域の環境局に電話してみてください。'
       );
