@@ -182,7 +182,7 @@ export class ContentsComponent implements OnInit {
       );
       return;
     }
-    this.createReview(this.selectedTag);
+    this.lastResult = this.createReview(this.selectedTag);
     this.isReviewed = true;
   }
 
@@ -217,8 +217,8 @@ export class ContentsComponent implements OnInit {
       });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
       this.garbage[tag.name].options.forEach((option) => {
-        if (!this.detailedTags.includes(option.option)) {
-          this.detailedTags.push(option.option);
+        if (!this.detailedTags.includes(option)) {
+          this.detailedTags.push(option);
         }
       });
     });
@@ -242,8 +242,8 @@ export class ContentsComponent implements OnInit {
       });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
       this.garbage[tag].options.forEach((option) => {
-        if (!this.detailedTags.includes(option.option)) {
-          this.detailedTags.push(option.option);
+        if (!this.detailedTags.includes(option)) {
+          this.detailedTags.push(option);
         }
       });
     });
@@ -268,8 +268,8 @@ export class ContentsComponent implements OnInit {
         });
 
         this.garbage[res].options.forEach((option) => {
-          if (!this.detailedTags.includes(option.option)) {
-            this.detailedTags.push(option.option);
+          if (!this.detailedTags.includes(option)) {
+            this.detailedTags.push(option);
           }
         });
       });
@@ -331,16 +331,9 @@ export class ContentsComponent implements OnInit {
   }
 
   createReview(searchVal) {
-    let converted;
-    Object.keys(this.garbage).forEach((key) => {
-      this.garbage[key].options.forEach((option) => {
-        if (option.option === searchVal) {
-          converted = option.sorting;
-        }
-      });
-    });
-    this.lastResult = this.area[this.selectedArea].find(
-      (area) => area.name === converted
+    const sorting = searchVal.split('-')[0]
+    return this.area[this.selectedArea].find(
+      (area) => area.name === sorting
     ).jpn;
   }
 }

@@ -83,11 +83,11 @@
         <input
           type="radio"
           name="selectedTag"
-          [value]="tag"
-          [id]="index"
+          [value]="tag.sorting + '-' + index"
+          [id]="tag.sorting + '-' + index"
           [(ngModel)]="selectedTag"
         />
-        <label [for]="index">{{ tag }}</label>
+        <label [for]="tag.sorting + '-' + index">{{ tag.option }}</label>
       </ng-container>
     </div>
     <!-- ボタン -->
