@@ -217,7 +217,7 @@ export class ContentsComponent implements OnInit {
       });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
       this.garbage[tag.name].options.forEach((option) => {
-        if (!this.detailedTags.includes(option)) {
+        if (!this.detailedTags.some(tag => tag.option === option.option)) {
           this.detailedTags.push(option);
         }
       });
@@ -242,7 +242,7 @@ export class ContentsComponent implements OnInit {
       });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
       this.garbage[tag].options.forEach((option) => {
-        if (!this.detailedTags.includes(option)) {
+        if (!this.detailedTags.some(tag => tag.option === option.option)) {
           this.detailedTags.push(option);
         }
       });
@@ -268,7 +268,7 @@ export class ContentsComponent implements OnInit {
         });
 
         this.garbage[res].options.forEach((option) => {
-          if (!this.detailedTags.includes(option)) {
+          if (!this.detailedTags.some(tag => tag.option === option.option)) {
             this.detailedTags.push(option);
           }
         });
