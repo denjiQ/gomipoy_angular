@@ -33,10 +33,10 @@ export class ContentsComponent implements OnInit {
   imageData;
   isLoaded: boolean = false;
   garbages;
-  
+
   isFinished: boolean = false;
   isReviewed: boolean = false;
-  scores = []
+  scores = [];
 
   // 各地域固有の分別方法の定義
   // 第一の配列は分別方法の定義
@@ -68,26 +68,27 @@ export class ContentsComponent implements OnInit {
 
   // DI（依存性注入する機能を指定）
   constructor(private db: AngularFirestore) {
-    this.garbages = {}
-    const docRef = db
-      .collection('garbage')
+    this.garbages = {};
+    const docRef = db.collection('garbage');
 
-    docRef.valueChanges().pipe(
-      map(x => {
-        return x
-      })).subscribe((x)=>{
-        this.area = x[0]
-        this.garbages["osaka"] = x[1]
-        this.garbages["shibuya"] = x[2]
-      })
+    docRef
+      .valueChanges()
+      .pipe(
+        map((x) => {
+          return x;
+        })
+      )
+      .subscribe((x) => {
+        this.area = x[0];
+        this.garbages['osaka'] = x[1];
+        this.garbages['shibuya'] = x[2];
+      });
   }
 
   ngOnInit(): void {}
 
   onChangeAreaSelect(): void {
-    // this.selectedArea = $('#area-select option:selected').val();
-    // this.garbage = this.getGarbage(this.selectedArea);
-    this.garbage = this.garbages[this.selectedArea]
+    this.garbage = this.garbages[this.selectedArea];
   }
 
   onChangeFile(e): void {
@@ -96,7 +97,7 @@ export class ContentsComponent implements OnInit {
       return;
     }
     this.isHidden = true;
-    this.detailedTags = []
+    this.detailedTags = [];
     // // 選択したファイルのイメージを表示する
     var reader = new FileReader();
     reader.readAsDataURL(file);
@@ -136,14 +137,14 @@ export class ContentsComponent implements OnInit {
           alert('error');
         });
       // 全てのスコアをゼロにする
-      this.scores = []
-      this.area[this.selectedArea].forEach((area)=>{
+      this.scores = [];
+      this.area[this.selectedArea].forEach((area) => {
         this.scores.push({
           name: area.name,
           score: 0,
-          jpn: area.jpn
-        })
-      })
+          jpn: area.jpn,
+        });
+      });
       this.getTags(data);
       this.getDescription(data);
       this.getCaptions(data);
@@ -154,11 +155,14 @@ export class ContentsComponent implements OnInit {
           return prev + current;
         });
       };
-      var confSum = sum(this.scores.map(score => score.score));
-      var check = Math.max.apply(null, this.scores.map(score => score.score));
+      var confSum = sum(this.scores.map((score) => score.score));
+      var check = Math.max.apply(
+        null,
+        this.scores.map((score) => score.score)
+      );
       this.confidence = (check / confSum) * 100;
       this.confidence = Math.floor(this.confidence);
-      this.lastResult = this.scores.find(score => score.score === check).jpn;
+      this.lastResult = this.scores.find((score) => score.score === check).jpn;
 
       this.createGraph();
       this.isFinished = true;
@@ -191,13 +195,13 @@ export class ContentsComponent implements OnInit {
   getTags(data) {
     // tagsの処理
     // apiから返ってくるtagsという配列の値を利用してスコア付けをする
-    data.tags.forEach(tag => {
+    data.tags.forEach((tag) => {
       // garbage配列にないものはfor文をスキップする
       if (this.garbage[tag.name] == undefined) {
         return;
       }
       // tagsにはそれぞれの分析結果に対してconfidenceが存在する
-      this.garbage[tag.name].sortings.forEach((sorting, i, array)=>{
+      this.garbage[tag.name].sortings.forEach((sorting, i, array) => {
         // confidenceをlengthで割る
         // 複数カテゴリーにまたがるtagに対して、その影響を相対的に小さくするための数値
         // たとえば、plasticは三種類ものゴミの可能性があるタグに対し、
@@ -206,18 +210,16 @@ export class ContentsComponent implements OnInit {
         // 結果として、plasticがなんらかの間違いで新聞の画像に入っていた場合、
         // ４種類の分別種類スコアが近しい点数を示す可能性が存在することになる
         // それを避けるために、点数のかさみ付けをする
-        const score = tag.confidence / array.length
-        this.scores.find(sort=>sort.name === sorting).score += score
-      })
+        const score = tag.confidence / array.length;
+        this.scores.find((sort) => sort.name === sorting).score += score;
+      });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
-      this.garbage[tag.name].options.forEach((option)=>{
-        if (
-          !this.detailedTags.includes(option.option)
-        ) {
+      this.garbage[tag.name].options.forEach((option) => {
+        if (!this.detailedTags.includes(option.option)) {
           this.detailedTags.push(option.option);
         }
-      })
-    })
+      });
+    });
   }
 
   // descriptionの処理
@@ -226,24 +228,22 @@ export class ContentsComponent implements OnInit {
   // それぞれ固有の値を入れる点
   // 固有の値はareaに入っている配列を参照する
   getDescription(data) {
-    data.description.tags.forEach((tag)=>{
+    data.description.tags.forEach((tag) => {
       if (this.garbage[tag] == undefined) {
         return;
       }
-      this.garbage[tag].sortings.forEach((sorting,i,array)=>{
-        const score = this.area[this.selectedArea].find((sort)=>{
-          return sort.name === sorting
-        }).confidence / array.length
-        this.scores.find(score=>score.name === sorting).score += score
-      })
+      this.garbage[tag].sortings.forEach((sorting, i, array) => {
+        const score =
+          this.area[this.selectedArea].find((sort) => sort.name === sorting)
+            .confidence / array.length;
+        this.scores.find((score) => score.name === sorting).score += score;
+      });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
-      this.garbage[tag].options.forEach((option)=>{
-        if (
-          !this.detailedTags.includes(option.option)
-        ) {
+      this.garbage[tag].options.forEach((option) => {
+        if (!this.detailedTags.includes(option.option)) {
           this.detailedTags.push(option.option);
         }
-      })
+      });
     });
   }
 
@@ -254,25 +254,23 @@ export class ContentsComponent implements OnInit {
     if (typeof data.description.captions[0] !== 'undefined') {
       var str = data.description.captions[0].text;
       var result = str.split(' ');
-      result.forEach((res)=>{
+      result.forEach((res) => {
         if (this.garbage[res] == undefined) {
           return;
         }
-        this.garbage[res].sortings.forEach((sorting,i,array)=>{
-          const score = this.area[this.selectedArea].find((sort)=>{
-            return sort.name === sorting
-          }).confidence / array.length
-          this.scores.find(score=>score.name === sorting).score += score
-        })
+        this.garbage[res].sortings.forEach((sorting, i, array) => {
+          const score =
+            this.area[this.selectedArea].find((sort) => sort.name === sorting)
+              .confidence / array.length;
+          this.scores.find((score) => score.name === sorting).score += score;
+        });
 
-        this.garbage[res].options.forEach((option)=>{
-          if (
-            !this.detailedTags.includes(option.option)
-          ) {
+        this.garbage[res].options.forEach((option) => {
+          if (!this.detailedTags.includes(option.option)) {
             this.detailedTags.push(option.option);
           }
-        })
-      })
+        });
+      });
     }
   }
 
@@ -283,28 +281,28 @@ export class ContentsComponent implements OnInit {
     // また出現する値としてはdrink_canのようにそのものずばりなものが多いため、
     // 計上するスコアも高くしている
     // ただし処理の実行頻度は高くなく、削っても良いとは考える
-    data.categories.forEach((category)=>{
+    data.categories.forEach((category) => {
       if (this.garbage[category.name] == undefined) {
         return;
       }
-      this.garbage[category.name].sortings.forEach((sorting)=>{
-        const score = this.area[this.selectedArea].find((sort)=>{
-          return sort.name === sorting
-        }).confidence * 2
-        this.scores.find(score=>score.name === sorting).score += score
-      })
-    })
+      this.garbage[category.name].sortings.forEach((sorting) => {
+        const score =
+          this.area[this.selectedArea].find((sort) => sort.name === sorting)
+            .confidence * 2;
+        this.scores.find((score) => score.name === sorting).score += score;
+      });
+    });
   }
 
   createGraph() {
     // グラフ作成部
     // グラフに表示するデータ部分
     var mydata = {
-      labels: this.area[this.selectedArea].map(area => area.jpn),
+      labels: this.area[this.selectedArea].map((area) => area.jpn),
       datasets: [
         {
           hoverBackgroundColor: 'rgba(255,99,132,0.3)',
-          data: this.scores.map(score => score.score),
+          data: this.scores.map((score) => score.score),
         },
       ],
     };
@@ -332,14 +330,15 @@ export class ContentsComponent implements OnInit {
 
   createReview(searchVal) {
     let converted;
-    Object.keys(this.garbage).forEach(key => {
-      this.garbage[key].options.forEach(option => {
-        if(option.option === searchVal){
-          converted = option.sorting
+    Object.keys(this.garbage).forEach((key) => {
+      this.garbage[key].options.forEach((option) => {
+        if (option.option === searchVal) {
+          converted = option.sorting;
         }
-      })
-    })
-    this.lastResult = this.area[this.selectedArea].find(area => area.name === converted).jpn
+      });
+    });
+    this.lastResult = this.area[this.selectedArea].find(
+      (area) => area.name === converted
+    ).jpn;
   }
-
 }
