@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
+import { AngularFirestore } from '@angular/fire/firestore'; // 追加
 import axios from 'axios';
 import { Chart } from 'chart.js';
+import { map } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment.prod';
 
@@ -39,6 +41,7 @@ export class ContentsComponent implements OnInit {
   selectedTag = '';
   imageData;
   isLoaded: boolean = false;
+  garbages;
   // 各地域固有の分別方法の定義
   // 第一の配列は分別方法の定義
   // 第二配列はそれぞれの分別に当てはまるタグがあったときに対してどれくらいのスコアを計上するか
@@ -58,13 +61,26 @@ export class ContentsComponent implements OnInit {
   // 高いconfidenceの数値をこのdescriptionが簡単に上回らないように、
   // 高いconfidenceの値の半分程度の値を代入している
 
-  constructor() {}
+  // DI（依存性注入する機能を指定）
+  constructor(private db: AngularFirestore) {
+    const docRef = db
+      .collection('garbage')
+      .doc('shibuya')
+
+    docRef.valueChanges().pipe(
+      map(x => {
+        return x
+      })).subscribe((x)=>{
+        console.log(x)
+        this.garbages = x
+      })
+  }
 
   onChangeAreaSelect(): void {
     // this.selectedArea = $('#area-select option:selected').val();
     console.log(this.selectedArea);
     this.area = this.getArea();
-    this.garbage = this.getGarbage(this.selectedArea);
+    // this.garbage = this.getGarbage(this.selectedArea);
   }
 
   onChangeFile(e): void {
@@ -114,35 +130,27 @@ export class ContentsComponent implements OnInit {
         });
 
       // 全てのスコアをゼロにする
-      for (i = 0; i < this.area[this.selectedArea][2].length; i++) {
-        this.area[this.selectedArea][2][i] = 0;
-      }
+      this.area[this.selectedArea].forEach((area)=>{
+        area.score = 0
+      })
       this.getTags(data);
-      console.log(this.area[this.selectedArea][2]);
       this.getDescription(data);
-      console.log(this.area[this.selectedArea][2]);
       this.getCaptions(data);
-      console.log(this.area[this.selectedArea][2]);
       this.getCategories(data);
-      console.log(this.area[this.selectedArea][2]);
       // 計上したスコアを比較、最も高いものを分析結果として表示
       var sum = function (arr) {
         return arr.reduce(function (prev, current, i, arr) {
           return prev + current;
         });
       };
-      var confSum = sum(this.area[this.selectedArea][2]);
-      var check = Math.max.apply(null, this.area[this.selectedArea][2]);
-      for (var i = 0; i < this.area[this.selectedArea][2].length; i++) {
-        if (check == this.area[this.selectedArea][2][i]) {
-          this.lastResult = this.area[this.selectedArea][3][i];
-          this.confidence =
-            (this.area[this.selectedArea][2][i] / confSum) * 100;
-          this.confidence = Math.floor(this.confidence);
-        }
-      }
+      var confSum = sum(this.area[this.selectedArea].map(area => area.score));
+      var check = Math.max.apply(null, this.area[this.selectedArea].map(area => area.score));
+
+      this.confidence = (check / confSum) * 100;
+      this.confidence = Math.floor(this.confidence);
+      this.lastResult = this.area[this.selectedArea].find(area => area.score === check).jpn;
+
       this.createGraph();
-      console.log(this.detailedTags);
       this.isFinished = true;
     };
   }
@@ -174,110 +182,70 @@ export class ContentsComponent implements OnInit {
   getTags(data) {
     // tagsの処理
     // apiから返ってくるtagsという配列の値を利用してスコア付けをする
-    for (var i = 0; i < data.tags.length; i++) {
-      // sは後述
-      var s = 0;
-      // 一時的に計算を保存するための変数
-      var tempScore = [];
+    data.tags.forEach(tag => {
       // garbage配列にないものはfor文をスキップする
-      if (this.garbage[data.tags[i].name] == undefined) {
-        continue;
+      if (this.garbages[tag.name] == undefined) {
+        return;
       }
       // tagsにはそれぞれの分析結果に対してconfidenceが存在する
-      // その値をそのまま各スコアに計上する
-      // garbage配列の0番目の配列、つまりタグに対する分別種類が入っている配列のlengthを取り、forで回す
-      for (var k = 0; k < this.garbage[data.tags[i].name][0].length; k++) {
-        tempScore = [];
-        // area配列の0番目の配列、つまり地域の分別種類が入っている配列を回す
-        for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-          // 地域の分別種類とgarbage配列に入っているタグに対する分別種類が一致していれば処理開始
-          // 一致しているということは、そのタグはその地域ではその分別方法だということ
-          // つまりその地域のその分別方法に対するスコアを加算する
-          // むちゃくちゃ難しいとは思う
-          if (
-            this.garbage[data.tags[i].name][0][k] ==
-            this.area[this.selectedArea][0][j]
-          ) {
-            // 一時保存用の変数に信頼度を代入
-            tempScore[j] = data.tags[i].confidence;
-            // sは複数カテゴリーにまたがるtagに対して、その影響を相対的に小さくするための数値
-            // たとえば、plasticは三種類ものゴミの可能性があるタグに対し、
-            // newspaperはほぼ古紙・衣類に分別される
-            // 得点のかさみ付けをしなければ、plasticはnewspaperと「同じ重さの」スコアを複数カテゴリーにばらまくことになる
-            // 結果として、plasticがなんらかの間違いで新聞の画像に入っていた場合、
-            // ４種類の分別種類スコアが近しい点数を示す可能性が存在することになる
-            // それを避けるために、点数のかさみ付けをする
-            s++;
-          }
-        }
-        // 一時保存用の変数に入っているスコアをsで割る
-        for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-          if (tempScore[j] == null) {
-            continue;
-          }
-          tempScore[j] = tempScore[j] / s;
-          this.area[this.selectedArea][2][j] += tempScore[j];
-        }
-      }
+      this.garbages[tag.name].sortings.forEach((sorting, i, array)=>{
+        console.log(sorting)
+        // 地域の分別種類とgarbage配列に入っているタグに対する分別種類が一致していれば処理開始
+        // 一致しているということは、そのタグはその地域ではその分別方法だということ
+        // つまりその地域のその分別方法に対するスコアを加算する
+        // confidenceをlengthで割る
+        // 複数カテゴリーにまたがるtagに対して、その影響を相対的に小さくするための数値
+        // たとえば、plasticは三種類ものゴミの可能性があるタグに対し、
+        // newspaperはほぼ古紙・衣類に分別される
+        // 得点のかさみ付けをしなければ、plasticはnewspaperと「同じ重さの」スコアを複数カテゴリーにばらまくことになる
+        // 結果として、plasticがなんらかの間違いで新聞の画像に入っていた場合、
+        // ４種類の分別種類スコアが近しい点数を示す可能性が存在することになる
+        // それを避けるために、点数のかさみ付けをする
+        const score = this.area[this.selectedArea].find((sort)=>{
+          return sort.name === sorting
+        }).confidence / array.length
+        this.area[this.selectedArea].find((sort)=>{
+          return sort.name === sorting
+        }).score += score
+      })
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
-      for (var k = 0; k < this.garbage[data.tags[i].name][1].length; k++) {
+      this.garbages[tag.name].options.forEach((option)=>{
         if (
-          !this.detailedTags.includes(this.garbage[data.tags[i].name][1][k])
+          !this.detailedTags.includes(option.option)
         ) {
-          this.detailedTags.push(this.garbage[data.tags[i].name][1][k]);
+          this.detailedTags.push(option.option);
         }
-      }
-    }
+      })
+    })
   }
 
+  // descriptionの処理
+  // descriptionについても、処理内容はtagsと同様
+  // 異なる点は、ゴミのtagが検出された際、confidenceでなく、
+  // それぞれ固有の値を入れる点
+  // 固有の値はareaに入っている配列を参照する
   getDescription(data) {
-    // descriptionの処理
-    // descriptionについても、処理内容はtagsと同様
-    // 異なる点は、ゴミのtagが検出された際、confidenceでなく、
-    // それぞれ固有の値を入れる点
-    // 固有の値はareaに入っている配列を参照する
-    for (var i = 0; i < data.description.tags.length; i++) {
-      var s = 0;
-      if (this.garbage[data.description.tags[i]] == undefined) {
-        continue;
+    data.description.tags.forEach((tag)=>{
+      if (this.garbages[tag] == undefined) {
+        return;
       }
-      for (
-        var k = 0;
-        k < this.garbage[data.description.tags[i]][0].length;
-        k++
-      ) {
-        let tempScore = [];
-        for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-          if (
-            this.garbage[data.description.tags[i]][0][k] ==
-            this.area[this.selectedArea][0][j]
-          ) {
-            tempScore[j] = this.area[this.selectedArea][1][j];
-            s++;
-          }
-        }
-        for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-          if (tempScore[j] == null) {
-            continue;
-          }
-          tempScore[j] = tempScore[j] / s;
-          this.area[this.selectedArea][2][j] += tempScore[j];
-        }
-      }
-      for (
-        var k = 0;
-        k < this.garbage[data.description.tags[i]][1].length;
-        k++
-      ) {
+      this.garbages[tag].sortings.forEach((sorting,i,array)=>{
+        const score = this.area[this.selectedArea].find((sort)=>{
+          return sort.name === sorting
+        }).confidence / array.length
+        this.area[this.selectedArea].find((sort)=>{
+          return sort.name === sorting
+        }).score += score
+      })
+      // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
+      this.garbages[tag].options.forEach((option)=>{
         if (
-          !this.detailedTags.includes(
-            this.garbage[data.description.tags[i]][1][k]
-          )
+          !this.detailedTags.includes(option.option)
         ) {
-          this.detailedTags.push(this.garbage[data.description.tags[i]][1][k]);
+          this.detailedTags.push(option.option);
         }
-      }
-    }
+      })
+    });
   }
 
   getCaptions(data) {
@@ -287,36 +255,27 @@ export class ContentsComponent implements OnInit {
     if (typeof data.description.captions[0] !== 'undefined') {
       var str = data.description.captions[0].text;
       var result = str.split(' ');
-      for (var i = 0; i < result.length; i++) {
-        var s = 0;
-        if (this.garbage[result[i]] == undefined) {
-          continue;
+      result.forEach((res)=>{
+        if (this.garbages[res] == undefined) {
+          return;
         }
-        for (var k = 0; k < this.garbage[result[i]][0].length; k++) {
-          let tempScore = [];
-          for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-            if (
-              this.garbage[result[i]][0][k] ==
-              this.area[this.selectedArea][0][j]
-            ) {
-              tempScore[j] = this.area[this.selectedArea][1][j];
-              s++;
-            }
+        this.garbages[res].sortings.forEach((sorting,i,array)=>{
+          const score = this.area[this.selectedArea].find((sort)=>{
+            return sort.name === sorting
+          }).confidence / array.length
+          this.area[this.selectedArea].find((sort)=>{
+            return sort.name === sorting
+          }).score += score
+        })
+
+        this.garbages[res].options.forEach((option)=>{
+          if (
+            !this.detailedTags.includes(option.option)
+          ) {
+            this.detailedTags.push(option.option);
           }
-          for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-            if (tempScore[j] == null) {
-              continue;
-            }
-            tempScore[j] = tempScore[j] / s;
-            this.area[this.selectedArea][2][j] += tempScore[j];
-          }
-        }
-        for (var k = 0; k < this.garbage[result[i]][1].length; k++) {
-          if (!this.detailedTags.includes(this.garbage[result[i]][1][k])) {
-            this.detailedTags.push(this.garbage[result[i]][1][k]);
-          }
-        }
-      }
+        })
+      })
     }
   }
 
@@ -327,36 +286,30 @@ export class ContentsComponent implements OnInit {
     // また出現する値としてはdrink_canのようにそのものずばりなものが多いため、
     // 計上するスコアも高くしている
     // ただし処理の実行頻度は高くなく、削っても良いとは考える
-    for (var i = 0; i < data.categories.length; i++) {
-      if (this.garbage[data.categories[i].name] == undefined) {
-        continue;
+    data.categories.forEach((category)=>{
+      if (this.garbages[category.name] == undefined) {
+        return;
       }
-      for (
-        var k = 0;
-        k < this.garbage[data.categories[i].name][0].length;
-        k++
-      ) {
-        for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-          if (
-            this.garbage[data.categories[i].name][0][k] ==
-            this.area[this.selectedArea][0][j]
-          ) {
-            this.area[this.selectedArea][2][j] += data.categories[0].score * 2;
-          }
-        }
-      }
-    }
+      this.garbages[category.name].sortings.forEach((sorting)=>{
+        const score = this.area[this.selectedArea].find((sort)=>{
+          return sort.name === sorting
+        }).confidence * 2
+        this.area[this.selectedArea].find((sort)=>{
+          return sort.name === sorting
+        }).score += score
+      })
+    })
   }
 
   createGraph() {
     // グラフ作成部
     // グラフに表示するデータ部分
     var mydata = {
-      labels: this.area[this.selectedArea][3],
+      labels: this.area[this.selectedArea].map(area => area.jpn),
       datasets: [
         {
           hoverBackgroundColor: 'rgba(255,99,132,0.3)',
-          data: this.area[this.selectedArea][2],
+          data: this.area[this.selectedArea].map(area => area.score),
         },
       ],
     };
@@ -438,27 +391,15 @@ export class ContentsComponent implements OnInit {
   // }
   isReviewed: boolean = false;
   createReview(searchVal) {
-    console.log(this.garbage);
-    console.log(this.area);
     let converted;
-    for (var i in this.garbage) {
-      for (var k = 0; k < this.garbage[i][1].length; k++) {
-        if (this.garbage[i][1][k] == searchVal) {
-          converted = this.garbage[i][2][k];
-          break;
+    Object.keys(this.garbages).forEach(key => {
+      this.garbages[key].options.forEach(option => {
+        if(option.option === searchVal){
+          converted = option.sorting
         }
-      }
-      console.log(converted);
-      for (var j = 0; j < this.area[this.selectedArea][0].length; j++) {
-        if (this.area[this.selectedArea][0][j] == converted) {
-          this.lastResult = this.area[this.selectedArea][3][j];
-          break;
-        }
-      }
-      // if ($(window).width() < 900) {
-      //   $(window).scrollTop($('.result-area').offset().top);
-      // }
-    }
+      })
+    })
+    this.lastResult = this.area[this.selectedArea].find(area => area.name === converted).jpn
   }
 
   getArea() {
@@ -467,17 +408,64 @@ export class ContentsComponent implements OnInit {
       shibuya: [],
     };
     area['osaka'] = [
-      ['recycle', 'plastic', 'paper', 'normal'],
-      [0.4, 0.5, 0.4, 0.3],
-      [0, 0, 0, 0],
-      ['資源ごみ', '容器包装プラスチック', '古紙・衣類', '普通ゴミ'],
-    ];
+      {
+        name: "recycle",
+        confidence: 0.4,
+        score: 0,
+        jpn: "資源ごみ"
+      },
+      {
+        name: "plastic",
+        confidence: 0.5,
+        score: 0,
+        jpn: "容器包装プラスチック"
+      },
+      {
+        name: "paper",
+        confidence: 0.4,
+        score: 0,
+        jpn: "古紙・衣類"
+      },
+      {
+        name: "normal",
+        confidence: 0.3,
+        score: 0,
+        jpn: "普通ゴミ"
+      },
+    ]
     area['shibuya'] = [
-      ['inflammable', 'unflammable', 'recycle'],
-      [0.4, 0.4, 0.4],
-      [0, 0, 0],
-      ['可燃ごみ', '不燃ごみ', '資源ごみ'],
-    ];
+      {
+        name: "inflammable",
+        confidence: 0.4,
+        score: 0,
+        jpn: "可燃ごみ"
+      },
+      {
+        name: "unflammable",
+        confidence: 0.4,
+        score: 0,
+        jpn: "不燃ごみ"
+      },
+      {
+        name: "recycle",
+        confidence: 0.4,
+        score: 0,
+        jpn: "資源ごみ"
+      },
+    ]
+
+    // area['osaka'] = [
+    //   ['recycle', 'plastic', 'paper', 'normal'],
+    //   [0.4, 0.5, 0.4, 0.3],
+    //   [0, 0, 0, 0],
+    //   ['資源ごみ', '容器包装プラスチック', '古紙・衣類', '普通ゴミ'],
+    // ];
+    // area['shibuya'] = [
+    //   ['inflammable', 'unflammable', 'recycle'],
+    //   [0.4, 0.4, 0.4],
+    //   [0, 0, 0],
+    //   ['可燃ごみ', '不燃ごみ', '資源ごみ'],
+    // ];
     return area;
   }
 
