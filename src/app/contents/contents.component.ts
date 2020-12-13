@@ -189,10 +189,6 @@ export class ContentsComponent implements OnInit {
       }
       // tagsにはそれぞれの分析結果に対してconfidenceが存在する
       this.garbages[tag.name].sortings.forEach((sorting, i, array)=>{
-        console.log(sorting)
-        // 地域の分別種類とgarbage配列に入っているタグに対する分別種類が一致していれば処理開始
-        // 一致しているということは、そのタグはその地域ではその分別方法だということ
-        // つまりその地域のその分別方法に対するスコアを加算する
         // confidenceをlengthで割る
         // 複数カテゴリーにまたがるtagに対して、その影響を相対的に小さくするための数値
         // たとえば、plasticは三種類ものゴミの可能性があるタグに対し、
@@ -201,12 +197,8 @@ export class ContentsComponent implements OnInit {
         // 結果として、plasticがなんらかの間違いで新聞の画像に入っていた場合、
         // ４種類の分別種類スコアが近しい点数を示す可能性が存在することになる
         // それを避けるために、点数のかさみ付けをする
-        const score = this.area[this.selectedArea].find((sort)=>{
-          return sort.name === sorting
-        }).confidence / array.length
-        this.area[this.selectedArea].find((sort)=>{
-          return sort.name === sorting
-        }).score += score
+        const score = tag.confidence / array.length
+        this.area[this.selectedArea].find(sort=>sort.name === sorting).score += score
       })
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
       this.garbages[tag.name].options.forEach((option)=>{
