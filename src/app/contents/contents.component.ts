@@ -37,6 +37,7 @@ export class ContentsComponent implements OnInit {
   isFileDisabled: boolean = true;
   isFinished: boolean = false;
   isReviewed: boolean = false;
+  isLoading: boolean = false;
   scores = [];
 
   // 各地域固有の分別方法の定義
@@ -98,8 +99,10 @@ export class ContentsComponent implements OnInit {
     if (!file) {
       return;
     }
-    this.isHidden = true;
-    this.detailedTags = [];
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.isLoading = true
     // // 選択したファイルのイメージを表示する
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -107,10 +110,14 @@ export class ContentsComponent implements OnInit {
       this.imageData = e.target.result;
       this.isLoaded = true;
     };
-
+    
     const file_reader = new FileReader();
     file_reader.readAsArrayBuffer(file);
     file_reader.onload = async (e) => {
+      this.isHidden = true;
+      this.isFinished = false;
+      this.isReviewed = false;
+      this.detailedTags = [];
       const MY_DOMAIN = environment.azure.AZURE_API_DOMAIN;
       const MY_SUBSCRIPTION_KEY = environment.azure.AZURE_SUBSCRIPTION_KEY;
       const contents = e.target.result;
@@ -169,6 +176,7 @@ export class ContentsComponent implements OnInit {
 
       this.createGraph();
       this.isFinished = true;
+      this.isLoading = false
     };
   }
 
@@ -321,9 +329,6 @@ export class ContentsComponent implements OnInit {
       },
     };
     const canvas: any = document.getElementById('stage');
-    if (this.chart) {
-      this.chart.destroy();
-    }
     this.chart = new Chart(canvas, {
       type: 'bar', //グラフの種類
       data: mydata, //表示するデータ
