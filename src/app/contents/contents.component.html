@@ -39,6 +39,13 @@
     </figure>
   </div>
 
+  <!-- ローディングエリア -->
+  <div class="result-area" *ngIf="isLoading">
+    <h2 class="result">
+      分析中...
+    </h2>
+  </div>
+
   <!-- 結果を表示するエリアブロック -->
   <div class="result-area" *ngIf="isFinished">
     <div *ngIf="detailedTags.length > 0; else elseBlock">
@@ -83,11 +90,11 @@
         <input
           type="radio"
           name="selectedTag"
-          [value]="tag"
-          [id]="index"
+          [value]="tag.sorting + '-' + index"
+          [id]="tag.sorting + '-' + index"
           [(ngModel)]="selectedTag"
         />
-        <label [for]="index">{{ tag }}</label>
+        <label [for]="tag.sorting + '-' + index">{{ tag.option }}</label>
       </ng-container>
     </div>
     <!-- ボタン -->

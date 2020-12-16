@@ -15,7 +15,7 @@ export class ContentsComponent implements OnInit {
   // グラフ用変数
   chart;
   // 選ばれた地域を入れる変数
-  selectedArea: any;
+  selectedArea: string = "default";
   // 最後に表示する分別結果
   lastResult: string;
   // 信頼度
@@ -29,14 +29,15 @@ export class ContentsComponent implements OnInit {
   garbage = {};
 
   isHidden: boolean = false;
-  selectedTag = '';
-  imageData;
+  selectedTag: string;
+  imageData: string | ArrayBuffer;
   isLoaded: boolean = false;
-  garbages;
+  garbages = {};
 
   isFileDisabled: boolean = true;
   isFinished: boolean = false;
   isReviewed: boolean = false;
+  isLoading: boolean = false;
   scores = [];
 
   // 各地域固有の分別方法の定義
@@ -94,23 +95,29 @@ export class ContentsComponent implements OnInit {
   }
 
   onChangeFile(e): void {
-    var file = e.target.files[0];
+    const file = e.target.files[0];
     if (!file) {
       return;
     }
-    this.isHidden = true;
-    this.detailedTags = [];
+    if (this.chart) {
+      this.chart.destroy();
+    }
+    this.isLoading = true
     // // 選択したファイルのイメージを表示する
-    var reader = new FileReader();
+    const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (e) => {
       this.imageData = e.target.result;
       this.isLoaded = true;
     };
-
-    var file_reader = new FileReader();
+    
+    const file_reader = new FileReader();
     file_reader.readAsArrayBuffer(file);
     file_reader.onload = async (e) => {
+      this.isHidden = true;
+      this.isFinished = false;
+      this.isReviewed = false;
+      this.detailedTags = [];
       const MY_DOMAIN = environment.azure.AZURE_API_DOMAIN;
       const MY_SUBSCRIPTION_KEY = environment.azure.AZURE_SUBSCRIPTION_KEY;
       const contents = e.target.result;
@@ -136,7 +143,12 @@ export class ContentsComponent implements OnInit {
         })
         .catch((e) => {
           console.error(e);
-          alert('error');
+          if(e.response.data.code === "InvalidImageSize"){
+            alert('写真のサイズが大きすぎます。');
+          } else {
+            alert('error');
+          }
+          throw e;
         });
       // 全てのスコアをゼロにする
       this.scores = [];
@@ -147,27 +159,24 @@ export class ContentsComponent implements OnInit {
           jpn: area.jpn,
         });
       });
-      this.getTags(data);
-      this.getDescription(data);
-      this.getCaptions(data);
-      this.getCategories(data);
+      this.getTags(data.tags);
+      this.getDescription(data.description);
+      this.getCaptions(data.description);
+      this.getCategories(data.categories);
       // 計上したスコアを比較、最も高いものを分析結果として表示
-      var sum = function (arr) {
+      const sum = function (arr) {
         return arr.reduce(function (prev, current) {
           return prev + current;
         });
       };
-      var confSum = sum(this.scores.map((score) => score.score));
-      var check = Math.max.apply(
-        null,
-        this.scores.map((score) => score.score)
-      );
-      this.confidence = (check / confSum) * 100;
-      this.confidence = Math.floor(this.confidence);
-      this.lastResult = this.scores.find((score) => score.score === check).jpn;
+      const sumScore = sum(this.scores.map((score) => score.score));
+      const maxScore = Math.max(...this.scores.map((score) => score.score))
+      this.confidence = Math.floor((maxScore / sumScore) * 100);
+      this.lastResult = this.scores.find((score) => score.score === maxScore).jpn;
 
       this.createGraph();
       this.isFinished = true;
+      this.isLoading = false
     };
   }
 
@@ -182,7 +191,7 @@ export class ContentsComponent implements OnInit {
       );
       return;
     }
-    this.createReview(this.selectedTag);
+    this.lastResult = this.createReview(this.selectedTag);
     this.isReviewed = true;
   }
 
@@ -194,12 +203,12 @@ export class ContentsComponent implements OnInit {
     // $('#file').click();
   }
 
-  getTags(data) {
+  getTags(tags) {
     // tagsの処理
     // apiから返ってくるtagsという配列の値を利用してスコア付けをする
-    data.tags.forEach((tag) => {
+    tags.forEach((tag) => {
       // garbage配列にないものはfor文をスキップする
-      if (this.garbage[tag.name] == undefined) {
+      if (!this.garbage[tag.name]) {
         return;
       }
       // tagsにはそれぞれの分析結果に対してconfidenceが存在する
@@ -217,8 +226,8 @@ export class ContentsComponent implements OnInit {
       });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
       this.garbage[tag.name].options.forEach((option) => {
-        if (!this.detailedTags.includes(option.option)) {
-          this.detailedTags.push(option.option);
+        if (!this.detailedTags.some(tag => tag.option === option.option)) {
+          this.detailedTags.push(option);
         }
       });
     });
@@ -229,9 +238,9 @@ export class ContentsComponent implements OnInit {
   // 異なる点は、ゴミのtagが検出された際、confidenceでなく、
   // それぞれ固有の値を入れる点
   // 固有の値はareaに入っている配列を参照する
-  getDescription(data) {
-    data.description.tags.forEach((tag) => {
-      if (this.garbage[tag] == undefined) {
+  getDescription(description) {
+    description.tags.forEach((tag) => {
+      if (!this.garbage[tag]) {
         return;
       }
       this.garbage[tag].sortings.forEach((sorting, i, array) => {
@@ -242,49 +251,49 @@ export class ContentsComponent implements OnInit {
       });
       // 抽出されたタグに対して、分析結果後表示する選択肢を配列に入れる
       this.garbage[tag].options.forEach((option) => {
-        if (!this.detailedTags.includes(option.option)) {
-          this.detailedTags.push(option.option);
+        if (!this.detailedTags.some(tag => tag.option === option.option)) {
+          this.detailedTags.push(option);
         }
       });
     });
   }
 
-  getCaptions(data) {
+  getCaptions(description) {
     // descriptionのcaptionの処理
     // captionをスペースで区切り、分析している
     // 分析方法は上記二つとほぼ同様
-    if (typeof data.description.captions[0] !== 'undefined') {
-      var str = data.description.captions[0].text;
-      var result = str.split(' ');
-      result.forEach((res) => {
-        if (this.garbage[res] == undefined) {
-          return;
-        }
-        this.garbage[res].sortings.forEach((sorting, i, array) => {
-          const score =
-            this.area[this.selectedArea].find((sort) => sort.name === sorting)
-              .confidence / array.length;
-          this.scores.find((score) => score.name === sorting).score += score;
-        });
-
-        this.garbage[res].options.forEach((option) => {
-          if (!this.detailedTags.includes(option.option)) {
-            this.detailedTags.push(option.option);
-          }
-        });
-      });
+    if (!description.captions[0]) {
+      return
     }
+    const str = description.captions[0].text;
+    const result = str.split(' ');
+    result.forEach((res) => {
+      if (!this.garbage[res]) {
+        return;
+      }
+      this.garbage[res].sortings.forEach((sorting, i, array) => {
+        const score =
+          this.area[this.selectedArea].find((sort) => sort.name === sorting)
+            .confidence / array.length;
+        this.scores.find((score) => score.name === sorting).score += score;
+      });
+      this.garbage[res].options.forEach((option) => {
+        if (!this.detailedTags.some(tag => tag.option === option.option)) {
+          this.detailedTags.push(option);
+        }
+      });
+    });
   }
 
-  getCategories(data) {
+  getCategories(categories) {
     // カテゴリーについても分析している
     // 分析方法は同様
     // ただしカテゴリーは複数種類にまたがるtagは存在しない
     // また出現する値としてはdrink_canのようにそのものずばりなものが多いため、
     // 計上するスコアも高くしている
     // ただし処理の実行頻度は高くなく、削っても良いとは考える
-    data.categories.forEach((category) => {
-      if (this.garbage[category.name] == undefined) {
+    categories.forEach((category) => {
+      if (!this.garbage[category.name]) {
         return;
       }
       this.garbage[category.name].sortings.forEach((sorting) => {
@@ -299,7 +308,7 @@ export class ContentsComponent implements OnInit {
   createGraph() {
     // グラフ作成部
     // グラフに表示するデータ部分
-    var mydata = {
+    const mydata = {
       labels: this.area[this.selectedArea].map((area) => area.jpn),
       datasets: [
         {
@@ -320,9 +329,6 @@ export class ContentsComponent implements OnInit {
       },
     };
     const canvas: any = document.getElementById('stage');
-    if (this.chart) {
-      this.chart.destroy();
-    }
     this.chart = new Chart(canvas, {
       type: 'bar', //グラフの種類
       data: mydata, //表示するデータ
@@ -331,16 +337,9 @@ export class ContentsComponent implements OnInit {
   }
 
   createReview(searchVal) {
-    let converted;
-    Object.keys(this.garbage).forEach((key) => {
-      this.garbage[key].options.forEach((option) => {
-        if (option.option === searchVal) {
-          converted = option.sorting;
-        }
-      });
-    });
-    this.lastResult = this.area[this.selectedArea].find(
-      (area) => area.name === converted
+    const sorting = searchVal.split('-')[0]
+    return this.area[this.selectedArea].find(
+      (area) => area.name === sorting
     ).jpn;
   }
 }
